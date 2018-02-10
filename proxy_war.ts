@@ -3,7 +3,7 @@ type OnMutate = (path: Path, apply: Action) => void;
 export type Mut<T> = MutRec<T> & Mutable<T>;
 
 type MutRec<T> = {
-    readonly [P in keyof T]: Mut<T[P]>;
+    [P in keyof T]: Mut<T[P]>;
 }
 
 type Mutable<T> = {

@@ -1,4 +1,5 @@
 import { proxyify_any, isProxySymbol, proxyPathSymbol, apply_mutations } from './proxy_war';
+import { Store } from './mut';
 import { expect } from 'chai';
 
 describe("Reflected Objects", () => {
@@ -40,7 +41,7 @@ describe("Reflected Objects", () => {
     it("should poison nested array elements through methods", () => {
         const obj = [{}, {}];
         const mirror = proxyify_any(obj, [], () => { });
-        mirror.forEach(a => {
+        (mirror as any).forEach(a => {
             expect(a[isProxySymbol]).to.be.true;
         });
     });
@@ -56,5 +57,30 @@ describe("Reflected Objects", () => {
 
         apply_mutations(obj, mutations);
         expect(obj.a).to.be.equal(20);
+    });
+
+    it("should apply mutations on arrays", () => {
+        const obj = [{ a: 10 }];
+        const mutations = [];
+        const mirror = proxyify_any(obj, [], (p, m) => { mutations.push([p, m]) });
+        mirror.mutate(o => o.push({ a: 20 }));
+        expect(obj.length).to.be.equal(1);
+
+        expect(mutations.length).to.be.equal(1);
+
+        apply_mutations(obj, mutations);
+        expect(mirror.length).to.be.equal(2);
+    });
+});
+
+describe("store", () => {
+    it("should apply mutations after flush", () => {
+        const store = new Store({ a: 10 });
+        const root = store.getRoot();
+        root.mutate(r => r.a = 20);
+
+        expect(root.a === 10);
+        store.flush();
+        expect(root.a === 20);
     });
 });

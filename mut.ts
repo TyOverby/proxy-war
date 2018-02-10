@@ -6,12 +6,8 @@ type ListenFunc<T> = (state: Mut<T>) => void;
 
 type Debouncer = (c: () => void) => number;
 
-export interface Store<T> {
-    listen(f: ListenFunc<T>): CancelListen;
-    getRoot(): Mut<T>;
-}
 
-class StoreImpl<T> implements Store<T> {
+export class Store<T> {
     private state: T;
     private listeners: ListenFunc<T>[];
 
@@ -22,7 +18,12 @@ class StoreImpl<T> implements Store<T> {
     constructor(defaultState: T) {
         this.state = defaultState;
         this.listeners = [];
-        this.debouncer = requestAnimationFrame || (c => setTimeout(c, 0));
+
+        if (typeof (requestAnimationFrame) !== 'undefined') {
+            this.debouncer = requestAnimationFrame;
+        } else {
+            this.debouncer = (c => setTimeout(c, 0));
+        }
     }
 
     public listen(f: ListenFunc<T>): CancelListen {
@@ -35,31 +36,36 @@ class StoreImpl<T> implements Store<T> {
         };
     }
 
-    private triggerChange(path: Path, action: Action) {
+    private triggerChange() {
+        this.lastUpdateId = this.debouncer(() => {
+            const actions = this.changesSinceLast;
+            this.changesSinceLast = [];
+            this.lastUpdateId = 0;
+
+            apply_mutations(this.state, actions);
+            const root = this.getRoot();
+            for (const listener of this.listeners) {
+                listener.apply(root);
+            }
+        });
+    }
+
+    private appendChange(path: Path, action: Action) {
         this.changesSinceLast.push([path, action]);
         if (this.lastUpdateId === 0) {
-            this.lastUpdateId = this.debouncer(() => {
-                const actions = this.changesSinceLast;
-                this.changesSinceLast = [];
-                this.lastUpdateId = 0;
-
-                apply_mutations(this.state, actions);
-                const root = this.getRoot();
-                for (const listener of this.listeners) {
-                    listener.apply(root);
-                }
-            });
+            this.triggerChange();
         }
+    }
+
+    public flush() {
+        this.lastUpdateId = 0;
+        this.triggerChange();
     }
 
     public getRoot(): Mut<T> {
         return proxyify_any(
             this.state,
             [],
-            (path, action) => this.triggerChange(path, action));
+            (path, action) => this.appendChange(path, action));
     }
-}
-
-export function store<T>(defaultState: T): Store<T> {
-    return new StoreImpl(defaultState);
 }
