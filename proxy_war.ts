@@ -1,41 +1,32 @@
 type OnMutate = (path: Path, apply: Action) => void;
 
-const proxy_symbol = Symbol();
+export type Mut<T> = MutRec<T> & Mutable<T>;
 
-type Path = PropertyKey[];
-type Action = (any) => void;
+type MutRec<T> = {
+    readonly [P in keyof T]: Mut<T[P]>;
+}
+
+type Mutable<T> = {
+    mutate(f: (o: T) => void): void;
+}
+
+export const isProxySymbol = Symbol();
+export const proxyPathSymbol = Symbol();
+
+export type Path = PropertyKey[];
+export type Action = (any) => void;
 
 function basic_handler(path: Path, onMutate: OnMutate): ProxyHandler<any> {
-    const temp_storage = {};
-    const proxy_cache = {};
-    const deleted: { [x: string]: boolean } = {};
     return {
-        set(obj, prop, value) {
-            if (obj[prop] === value) return value;
-            temp_storage[prop] = value;
-            delete proxy_cache[prop];
-            onMutate([...path, prop], obj => obj[prop] = value);
-            return value;
-        },
         get(obj, prop) {
-            if (deleted[prop]) { return undefined; }
-            if (prop === proxy_symbol) { return true; }
-            if (proxy_cache[prop]) { return proxy_cache[prop] };
-            if (temp_storage[prop]) {
-                const proxied = proxyify_any(temp_storage[prop], [...path, prop], onMutate);
-                proxy_cache[prop] = proxied;
-                return proxied;
+            if (prop === isProxySymbol) { return true; }
+            if (prop === proxyPathSymbol) { return path; }
+            if (prop === 'mutate') {
+                return function (f: Action) {
+                    onMutate(path, f);
+                }
             }
-            const proxied = proxyify_any(obj[prop], [...path, prop], onMutate);
-            proxy_cache[prop] = proxied;
-            return proxied;
-        },
-        deleteProperty(obj, prop) {
-            delete temp_storage[prop];
-            delete proxy_cache[prop];
-            deleted[prop] = true;
-            onMutate([...path, prop], obj => delete obj[prop]);
-            return true;
+            return proxyify_any(obj[prop], [...path, prop], onMutate);
         },
     };
 
@@ -45,23 +36,31 @@ function proxyify_object<T extends object>(object: T, path: Path, onMutate: OnMu
     return new Proxy(object, basic_handler(path, onMutate));
 }
 
-function proxyify_list<T>(list: T[], path: Path, onMutate: OnMutate): T[] {
-    const base_handler = basic_handler(path, onMutate);
-    const new_get: ProxyHandler<any[]> = {
-        get(obj, prop) {
-            if (obj[prop] === [].push) {
-
-            }
-        }
-    };
-
-    return new Proxy(list, base_handler);
-}
-
-function proxyify_any<T>(value: T, path: Path, onMutate: OnMutate): T {
+export function proxyify_any<T>(value: T, path: Path, onMutate: OnMutate): Mut<T> {
     switch (typeof value) {
         case 'object': return proxyify_object<any>(value, path, onMutate);
-        case 'function': throw new Error("oh no");
-        default: return value;
+        //case 'function': throw new Error("unsupported type");
+        default: return value as any;
+    }
+}
+
+// TODO: sort by depth and apply deep-up?
+export function apply_mutations(obj: any, mutations: Array<[Path, Action]>) {
+    function apply_single(obj: any, path: Path, mutation: Action) {
+        if (path.length === 0) {
+            mutation(obj);
+            return;
+        }
+
+        const next = path.shift();
+        if (obj[next]) {
+            apply_single(obj[next], path, mutation)
+        } else {
+            throw new Error(`failed to find key ${next}`);
+        }
+    }
+
+    for (const [path, mutation] of mutations) {
+        apply_single(obj, path, mutation);
     }
 }
