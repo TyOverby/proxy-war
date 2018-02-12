@@ -1,12 +1,12 @@
-type OnMutate = (path: Path, apply: Action) => void;
+export type OnMutate = (path: Path, apply: Action) => void;
 
 export type Mut<T> = MutRec<T> & Mutable<T>;
 
-type MutRec<T> = {
+export type MutRec<T> = {
     [P in keyof T]: Mut<T[P]>;
 }
 
-type Mutable<T> = {
+export type Mutable<T> = {
     mutate(f: (o: T) => void): void;
 }
 
@@ -14,7 +14,7 @@ export const isProxySymbol = Symbol();
 export const proxyPathSymbol = Symbol();
 
 export type Path = PropertyKey[];
-export type Action = (any) => void;
+export type Action = (a: any) => void;
 
 function basic_handler(path: Path, onMutate: OnMutate): ProxyHandler<any> {
     return {
@@ -52,7 +52,7 @@ export function apply_mutations(obj: any, mutations: Array<[Path, Action]>) {
             return;
         }
 
-        const next = path.shift();
+        const next = path.shift()!;
         if (obj[next]) {
             apply_single(obj[next], path, mutation)
         } else {

@@ -1,11 +1,10 @@
-import { proxyify_any, Mut, Action, Path, apply_mutations, } from "./proxy_war";
+import { proxyify_any, Action, Mut, Path, apply_mutations, } from "./proxy_war";
+export { Mut } from "./proxy_war";
 
-
-type CancelListen = () => void;
-type ListenFunc<T> = (state: Mut<T>) => void;
+export type CancelListen = () => void;
+export type ListenFunc<T> = (state: Mut<T>) => void;
 
 type Debouncer = (c: () => void) => number;
-
 
 export class Store<T> {
     private state: T;
