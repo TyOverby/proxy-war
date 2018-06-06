@@ -1,4 +1,4 @@
-import { proxyify_any, Action, Mut, Path, apply_mutations, } from "./proxy_war";
+import { proxify, Action, Mut, Path, apply_mutations, } from "./proxy_war";
 export { Mut } from "./proxy_war";
 
 export type CancelListen = () => void;
@@ -36,24 +36,24 @@ export class Store<T> {
     }
 
     private triggerChange() {
-        this.lastUpdateId = this.debouncer(() => {
-            const actions = this.changesSinceLast;
-            this.changesSinceLast = [];
-            this.lastUpdateId = 0;
+        const actions = this.changesSinceLast;
+        this.changesSinceLast = [];
+        this.lastUpdateId = 0;
 
-            apply_mutations(this.state, actions);
-            const root = this.getRoot();
-            for (const listener of this.listeners) {
-                listener.apply(root);
-            }
-        });
+        apply_mutations(this.state, actions);
+        const root = this.getRoot();
+        for (const listener of this.listeners) {
+            listener.apply(root);
+        }
     }
 
     private appendChange(path: Path, action: Action) {
         this.changesSinceLast.push([path, action]);
-        if (this.lastUpdateId === 0) {
-            this.triggerChange();
-        }
+        this.lastUpdateId = this.debouncer(() => {
+            if (this.lastUpdateId === 0) {
+                this.triggerChange();
+            }
+        });
     }
 
     public flush() {
@@ -62,7 +62,7 @@ export class Store<T> {
     }
 
     public getRoot(): Mut<T> {
-        return proxyify_any(
+        return proxify(
             this.state,
             [],
             (path, action) => this.appendChange(path, action));
