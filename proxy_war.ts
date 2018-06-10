@@ -13,20 +13,24 @@ export type Mut<T> =
     T extends boolean ? boolean :
     T extends null ? null :
     T extends Array<infer U> ? (MutArray<U> & ProxyExtensions<T>) :
+    T extends Map<infer K, infer V> ? (MutMap<K, V> & ProxyExtensions<T>) :
+    T extends Set<infer K> ? (MutSet<K> & ProxyExtensions<T>) :
     T extends object ? (MutObject<T> & ProxyExtensions<T>) :
     never;
 
 export interface MutArray<T> extends ReadonlyArray<Mut<T>> { }
+export interface MutMap<K, V> extends ReadonlyMap<K, V> { }
+export interface MutSet<K> extends ReadonlySet<K> { }
 
 export type MutObject<T> = {
     readonly [P in NonFunctionPropertyNames<T>]: Mut<T[P]>;
 };
 
 export type ProxyExtensions<T> = {
-    [isProxySymbol]: true,
-    [proxyPathSymbol]: Path,
-    "mutate": (action: Mutation<T>) => void,
-    "replace": (value: T) => void,
+    readonly [isProxySymbol]: true,
+    readonly [proxyPathSymbol]: Path,
+    mutate(action: Mutation<T>): void,
+    replace(value: T): void,
 };
 
 export type Path = PropertyKey[];
@@ -54,7 +58,6 @@ function basic_handler(path: Path, onMutate: OnMutate): ProxyHandler<any> {
             return proxify(obj[prop], [...path, prop], onMutate);
         },
     };
-
 }
 
 function proxyify_object<T extends object>(object: T, path: Path, onMutate: OnMutate): T {

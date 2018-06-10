@@ -110,6 +110,35 @@ describe("Reflected Objects", () => {
         expect(mirror.length).to.be.equal(2);
     });
 
+    it("should apply mutations on sets", () => {
+        const obj = new Set([1, 2, 3, 3]);
+        const mutations: Mutations = [];
+        const mirror = proxify(obj, [], (p, m) => { mutations.push([p, m]) });
+        mirror.mutate(o => o.add(10));
+        expect(obj.size).to.be.equal(3);
+
+        expect(mutations.length).to.be.equal(1);
+
+        apply_mutations(obj, mutations);
+        expect(mirror.size).to.be.equal(4);
+    });
+
+    it("should apply mutations on Maps", () => {
+        const obj = new Map();
+        obj.set(1, 2);
+        obj.set(2, 4);
+        obj.set(3, 6);
+        const mutations: Mutations = [];
+        const mirror = proxify(obj, [], (p, m) => { mutations.push([p, m]) });
+        mirror.mutate(o => o.delete(1));
+        expect(obj.size).to.be.equal(3);
+
+        expect(mutations.length).to.be.equal(1);
+
+        apply_mutations(obj, mutations);
+        expect(mirror.size).to.be.equal(2);
+    });
+
     it("should apply replacements on object at top scope", () => {
         const obj = { a: 10 };
         const mutations: Mutations = [];
