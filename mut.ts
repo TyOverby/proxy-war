@@ -4,6 +4,9 @@ export { Mut } from "./proxy_war";
 export type CancelListen = () => void;
 export type ListenFunc<T> = (state: Mut<T>) => void;
 
+/// A function that schedules a function to be executed in the future.
+/// It must return a non-zero number.  Examples of good debouncer functions
+/// are window.requestAnimationFrame and window.setTimeout.
 type Debouncer = (c: () => void) => number;
 
 export class Store<T> {
@@ -14,11 +17,13 @@ export class Store<T> {
     private debouncer: Debouncer;
     private lastUpdateId: number = 0;
 
-    constructor(defaultState: T) {
+    constructor(defaultState: T, debouncer: Debouncer | null = null) {
         this.state = defaultState;
         this.listeners = [];
 
-        if (typeof (requestAnimationFrame) !== 'undefined') {
+        if (debouncer) {
+            this.debouncer = debouncer;
+        } else if (typeof (requestAnimationFrame) !== 'undefined') {
             this.debouncer = requestAnimationFrame;
         } else {
             this.debouncer = (c => setTimeout(c, 0));
@@ -49,15 +54,14 @@ export class Store<T> {
 
     private appendChange(path: Path, action: Action) {
         this.changesSinceLast.push([path, action]);
-        this.lastUpdateId = this.debouncer(() => {
-            if (this.lastUpdateId === 0) {
+        if (this.lastUpdateId === 0) {
+            this.lastUpdateId = this.debouncer(() => {
                 this.triggerChange();
-            }
-        });
+            });
+        }
     }
 
     public flush() {
-        this.lastUpdateId = 0;
         this.triggerChange();
     }
 
