@@ -1,5 +1,5 @@
 import { proxify, isProxySymbol, proxyPathSymbol, apply_mutations, Mutations } from './proxy_war';
-import { Store } from './mut';
+import { Store } from './store';
 import { expect } from 'chai';
 
 describe("Reflected Objects", () => {
@@ -150,6 +150,36 @@ describe("Reflected Objects", () => {
 
         apply_mutations(obj, mutations);
         expect(mirror.a).to.be.equal(20);
+    });
+
+    it("should apply updates on object at top scope", () => {
+        const obj = { a: 10, b: 30 };
+        const mutations: Mutations = [];
+        const mirror = proxify(obj, [], (p, m) => { mutations.push([p, m]) });
+        mirror.update({ a: 20 });
+        expect(obj.a).to.be.equal(10);
+        expect(obj.b).to.be.equal(30);
+
+        expect(mutations.length).to.be.equal(1);
+
+        apply_mutations(obj, mutations);
+        expect(mirror.a).to.be.equal(20);
+        expect(mirror.b).to.be.equal(30);
+    });
+
+    it("should apply updates on object at nested scope", () => {
+        const obj = { o: { a: 10, b: 30 } };
+        const mutations: Mutations = [];
+        const mirror = proxify(obj, [], (p, m) => { mutations.push([p, m]) });
+        mirror.o.update({ a: 20 });
+        expect(obj.o.a).to.be.equal(10);
+        expect(obj.o.b).to.be.equal(30);
+
+        expect(mutations.length).to.be.equal(1);
+
+        apply_mutations(obj, mutations);
+        expect(mirror.o.a).to.be.equal(20);
+        expect(mirror.o.b).to.be.equal(30);
     });
 
     it("should apply replacements on object at nested scope", () => {

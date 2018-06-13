@@ -1,5 +1,4 @@
 import { proxify, Action, Mut, Path, apply_mutations, } from "./proxy_war";
-export { Mut } from "./proxy_war";
 
 export type CancelListen = () => void;
 export type ListenFunc<T> = (state: Mut<T>) => void;
@@ -24,7 +23,7 @@ export class Store<T> {
         if (debouncer) {
             this.debouncer = debouncer;
         } else if (typeof (requestAnimationFrame) !== 'undefined') {
-            this.debouncer = requestAnimationFrame;
+            this.debouncer = (f) => window.requestAnimationFrame(f);
         } else {
             this.debouncer = (c => setTimeout(c, 0));
         }
